@@ -41,55 +41,72 @@ my $obr;
 # the sake of flexibility and demonstrating the
 # possibility.
 our $RULES = {
-     'MRAD' => [
-     {
-         'index' => [6,7],
-         'pattern' => qr/Patient:\s+Sex:\s+Account Number:.*\n\s*(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
-         'keys' => [qw(PATIENT SEX ACCT)],
-     },
-     {
-         'index' => [8,9],
-         'pattern' => qr/Ordering Physician:\s+Status:\s+Location:\s+Unit Number:.*\n\s*(\w+.*)\s{2,}\s+(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
-         'keys' => [qw(ORDERING_P STATUS LOCATION UNIT_NUMB)],
-     },
-     {
-         'index' => [10,11],
-         'pattern' => qr/Attending Physician:\s+Date of Birth:\s+Age:\s+Date of Exam:.*\n\s*(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s+(\S+)\s*$/i,
-         'keys' => [qw(ATTENDING_P DOB AGE DATE_OF_EXAM)],
-     },
-     ],
+
+    'EMCTH' => [
+        {
+            'index' => [ 3 ],
+            'pattern' =>
+                qr{Patient:\s+(\w+.*)$},
+            'keys' => [qw(PATIENT)],
+        },
+    ],
+    'MRAD' => [
+        {
+            'index' => [ 7, 8 ],
+            'pattern' =>
+                qr/Patient:\s+Sex:\s+Account Number:.*\n\s*(\w+.*?)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
+            'keys' => [qw(PATIENT SEX ACCT)],
+        },
+        {
+            'index' => [ 9, 10 ],
+            'pattern' =>
+                qr/Ordering Physician:\s+Status:\s+Location:\s+Unit Number:.*\n\s*(\w+.*?)\s{2,}\s+(\w+.*?)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
+            'keys' => [qw(ORDERING_P STATUS LOCATION UNIT_NUMB)],
+        },
+        {
+            'index' => [ 11, 12 ],
+            'pattern' =>
+                qr"Attending Physician:\s+Date of Birth:\s+Age:\s+Date of Exam:.*\n\s*(\w+.*?)\s{2,}(\d+/\d+/\d+)\s+(\d+)\s+(\d+/\d+/\d+)\s*$"i,
+            'keys' => [qw(ATTENDING_P DOB AGE DATE_OF_EXAM)],
+        },
+    ],
     'MCTH' => [
-    {
-        'index' => [3],
-        'pattern' => qr{MR #:\s*(\S+)\s+ACCT #:\s*(\S+)}i,
-        'keys' => [qw(MR ACCT)],
-    },
-    {
-        'index' => [4],
-        'pattern' => qr{Adm Date:\s*(\S+)\s+Room:\s*(\S+)}i,
-        'keys' => [qw(ADM_DATE ROOM)],
-    },
-    {
-        'index' => [5],
-        # XXX this pattern eats too much white space. Not sure why.
-        'pattern' => qr{Patient Type:\s*(.*)?\s{2}\s*DOB:\s*(\S+)}i,
-        'keys' => [qw(PATIENT_TYPE DOB)],
-    },
-    {
-        'index' => [6],
-        'pattern' => qr{Physician:\s*(\S+.*)}i,
-        'keys' => [qw(PHYSICIAN)],
-    },
-    {
-        'index' => [7],
-        'pattern' => qr{EMR ID:\s*(\S+.*)}i,
-        'keys' => [qw(EMR_ID)],
-    },
-    {
-        'index' => [8],
-        'pattern' => qr{AGE:\s*(\S+)\s*DOS:\s*(\S+)}i,
-        'keys' => [qw(AGE DOS)],
-    },
+        {
+            'index' => [ 3 ],
+            'pattern' =>
+                qr{Patient:\s+(\w+.*)$},
+            'keys' => [qw(PATIENT)],
+        },
+        {
+            'index'   => [4],
+            'pattern' => qr{MR #:\s*(\S+)\s+ACCT #:\s*(\S+)}i,
+            'keys'    => [qw(MR ACCT)],
+        },
+        {
+            'index'   => [5],
+            'pattern' => qr{Adm Date:\s*(\S+)\s+Room:\s*(\S+)}i,
+            'keys'    => [qw(ADM_DATE ROOM)],
+        },
+        {
+            'index' => [6],
+            'pattern' => qr{Patient Type:\s*(.*?)\s{2}\s*DOB:\s*(\S+)}i,
+            'keys'    => [qw(PATIENT_TYPE DOB)],
+        },
+        {
+            'index'   => [7],
+            'pattern' => qr{Physician:\s*(\S+.*)}i,
+            'keys'    => [qw(PHYSICIAN)],
+        },
+        {
+            'index'   => [8],
+            'pattern' => qr{EMR ID:\s*(\S+.*)}i,
+            'keys'    => [qw(EMR_ID)],
+        },
+        {
+            'index'   => [9],
+            'pattern' => qr{AGE:\s*(\S+)\s*DOS:\s*(\S+)}i,
+            'keys'    => [qw(AGE DOS)],
+        },
     ],
 };
 
@@ -141,7 +158,7 @@ while (<>) {
     };
     /^OBX/ && do {
         my @splits = split('\|', $_);
-        my $obx_line = $splits[5];
+        my $obx_line = $splits[5] || ' ';
         if ($obx_line) {
             $obx_line =~ s/^\s*//;
             $obx_line =~ s/\s*$//;
@@ -151,10 +168,7 @@ while (<>) {
     /^$/ && do {
 
         # we now have a complete record
-        # call a subroutine based on the obr code, if one doesn't
-        # exist, we just move on
-        no strict 'refs';
-        #&$obr(
+        # so...
         handle_rule(
             pid   => $pid,   name => $name, post_pid => $post_pid,
             obrid => $obrid, obx  => $obx,  obr      => $obr
@@ -175,6 +189,7 @@ sub handle_rule {
     return unless $RULES->{$params{obr}};
 
     # output the general info we got from the msh and nearby lines
+    print '#' x 25, "\n";
     print "filename: ", $params{pid}, '_', $params{post_pid}, '_',
         $params{obrid}, '.html', "\n";
     print "name: $params{name}\n";
@@ -208,7 +223,7 @@ sub handle_rule {
         if (
             $obx
             and (  $obx =~ /^\s*([[:upper:] ]+):\s+(.*$)/
-                or $obx =~ /^\s*([[:upper:] ]+)(\s*$)/)
+                or $obx =~ /^\s*([[:upper:] ]+):?(\s*$)/)
             ) {
             my $section = $1;
             my $extra   = $2;
