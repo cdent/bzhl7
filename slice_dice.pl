@@ -41,35 +41,52 @@ my $obr;
 # the sake of flexibility and demonstrating the
 # possibility.
 our $RULES = {
+     'MRAD' => [
+     {
+         'index' => [6,7],
+         'pattern' => qr/Patient:\s+Sex:\s+Account Number:.*\n\s*(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
+         'keys' => [qw(PATIENT SEX ACCT)],
+     },
+     {
+         'index' => [8,9],
+         'pattern' => qr/Ordering Physician:\s+Status:\s+Location:\s+Unit Number:.*\n\s*(\w+.*)\s{2,}\s+(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
+         'keys' => [qw(ORDERING_P STATUS LOCATION UNIT_NUMB)],
+     },
+     {
+         'index' => [10,11],
+         'pattern' => qr/Attending Physician:\s+Date of Birth:\s+Age:\s+Date of Exam:.*\n\s*(\w+.*)\s{2,}\s+(\S+)\s+(\S+)\s+(\S+)\s*$/i,
+         'keys' => [qw(ATTENDING_P DOB AGE DATE_OF_EXAM)],
+     },
+     ],
     'MCTH' => [
     {
-        'index' => (3),
+        'index' => [3],
         'pattern' => qr{MR #:\s*(\S+)\s+ACCT #:\s*(\S+)}i,
         'keys' => [qw(MR ACCT)],
     },
     {
-        'index' => (4),
+        'index' => [4],
         'pattern' => qr{Adm Date:\s*(\S+)\s+Room:\s*(\S+)}i,
         'keys' => [qw(ADM_DATE ROOM)],
     },
     {
-        'index' => (5),
+        'index' => [5],
         # XXX this pattern eats too much white space. Not sure why.
         'pattern' => qr{Patient Type:\s*(.*)?\s{2}\s*DOB:\s*(\S+)}i,
         'keys' => [qw(PATIENT_TYPE DOB)],
     },
     {
-        'index' => (6),
+        'index' => [6],
         'pattern' => qr{Physician:\s*(\S+.*)}i,
         'keys' => [qw(PHYSICIAN)],
     },
     {
-        'index' => (7),
+        'index' => [7],
         'pattern' => qr{EMR ID:\s*(\S+.*)}i,
         'keys' => [qw(EMR_ID)],
     },
     {
-        'index' => (8),
+        'index' => [8],
         'pattern' => qr{AGE:\s*(\S+)\s*DOS:\s*(\S+)}i,
         'keys' => [qw(AGE DOS)],
     },
@@ -139,7 +156,6 @@ while (<>) {
         no strict 'refs';
         #&$obr(
         handle_rule(
-            rule_set => $obr,
             pid   => $pid,   name => $name, post_pid => $post_pid,
             obrid => $obrid, obx  => $obx,  obr      => $obr
         );
@@ -156,7 +172,7 @@ sub handle_rule {
         %inparams,
     );
 
-    return unless $RULES->{$params{rule_set}};
+    return unless $RULES->{$params{obr}};
 
     # output the general info we got from the msh and nearby lines
     print "filename: ", $params{pid}, '_', $params{post_pid}, '_',
@@ -172,12 +188,13 @@ sub handle_rule {
     # and the body begins. We calculate it while processing the
     # headers.
     my $max_index = 0;
-    foreach my $rule (@{ $RULES->{$params{rule_set}} }) {
-        my @index = $rule->{index};
+    foreach my $rule (@{ $RULES->{$params{obr}} }) {
+        my @index = @{$rule->{index}};
+        #print STDERR "@index\n";
         my $index_max = $index[-1];
         $max_index = $max_index > $index_max ? $max_index : $index_max;
         my $line = join("\n", @{$params{obx}}[@index]);
-        my %new_data;
+        #print STDERR "@index#$line\n#";
         @$obx_data{ @{ $rule->{keys} } } = ($line =~ $rule->{pattern});
     }
 
