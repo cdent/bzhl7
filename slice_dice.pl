@@ -43,33 +43,33 @@ my $obr;
 our $RULES = {
     'MCTH' => [
     {
-        'index' => 3,
+        'index' => (3),
         'pattern' => qr{MR #:\s*(\S+)\s+ACCT #:\s*(\S+)}i,
         'keys' => [qw(MR ACCT)],
     },
     {
-        'index' => 4,
+        'index' => (4),
         'pattern' => qr{Adm Date:\s*(\S+)\s+Room:\s*(\S+)}i,
         'keys' => [qw(ADM_DATE ROOM)],
     },
     {
-        'index' => 5,
+        'index' => (5),
         # XXX this pattern eats too much white space. Not sure why.
         'pattern' => qr{Patient Type:\s*(.*)?\s{2}\s*DOB:\s*(\S+)}i,
         'keys' => [qw(PATIENT_TYPE DOB)],
     },
     {
-        'index' => 6,
+        'index' => (6),
         'pattern' => qr{Physician:\s*(\S+.*)}i,
         'keys' => [qw(PHYSICIAN)],
     },
     {
-        'index' => 7,
+        'index' => (7),
         'pattern' => qr{EMR ID:\s*(\S+.*)}i,
         'keys' => [qw(EMR_ID)],
     },
     {
-        'index' => 8,
+        'index' => (8),
         'pattern' => qr{AGE:\s*(\S+)\s*DOS:\s*(\S+)}i,
         'keys' => [qw(AGE DOS)],
     },
@@ -137,7 +137,9 @@ while (<>) {
         # call a subroutine based on the obr code, if one doesn't
         # exist, we just move on
         no strict 'refs';
-        &$obr(
+        #&$obr(
+        handle_rule(
+            rule_set => $obr,
             pid   => $pid,   name => $name, post_pid => $post_pid,
             obrid => $obrid, obx  => $obx,  obr      => $obr
         );
@@ -146,13 +148,15 @@ while (<>) {
     };
 }
 
-sub MCTH {
+sub handle_rule {
     my %inparams = @_;
     my %params   = (
 
         # defaults
         %inparams,
     );
+
+    return unless $RULES->{$params{rule_set}};
 
     # output the general info we got from the msh and nearby lines
     print "filename: ", $params{pid}, '_', $params{post_pid}, '_',
@@ -168,10 +172,11 @@ sub MCTH {
     # and the body begins. We calculate it while processing the
     # headers.
     my $max_index = 0;
-    foreach my $rule (@{ $RULES->{MCTH} }) {
-        my $index = $rule->{index};
-        $max_index = $max_index > $index ? $max_index : $index;
-        my $line = $params{obx}->[$index];
+    foreach my $rule (@{ $RULES->{$params{rule_set}} }) {
+        my @index = $rule->{index};
+        my $index_max = $index[-1];
+        $max_index = $max_index > $index_max ? $max_index : $index_max;
+        my $line = join("\n", @{$params{obx}}[@index]);
         my %new_data;
         @$obx_data{ @{ $rule->{keys} } } = ($line =~ $rule->{pattern});
     }
@@ -217,17 +222,3 @@ sub MCTH {
     # uncomment the following line
     #exit;
 }
-
-sub EMCTH {
-    return MCTH($@);
-}
-
-our $AUTOLOAD;
-
-sub AUTOLOAD {
-    $AUTOLOAD =~ s/.*://;
-    return if $AUTOLOAD eq 'DESTROY';
-
-    #warn "no method for $AUTOLOAD";
-}
-
