@@ -73,7 +73,6 @@ sub put {
                 undef, $uuid, $key);
         }
         # now put the row in values
-        warn "inserting ", $data->{$key};
         $self->dbh->do(
             "REPLACE INTO " . $self->ename . '_values' . " VALUES(?, ?, ?)",
             undef, $id, $uuid, $data->{$key});

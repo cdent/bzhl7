@@ -3,111 +3,55 @@
 use strict;
 use warnings;
 
+use GEC;
+
+
+my $DSN = 'DBI:mysql:database=gec';
+my $USER = 'cdent';
+my $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
+$GEC->create();
+
 my $pid;
-my $post_pid;
-my $obrid;
-my $name;
-my $obx;
+my $orc;
 my $obr;
+my $obx;
 
-# These are the OBX parsing rules for what might be
-# called the header at the top of the section. The
-# individual chunks of data that are not narrative,
-# but are semi-structure data. We use the rules to
-# parse that data into a hash. The narrative data
-# is processed by inference after the RULES are applied.
-#
-# Ideally these rules would/will be kept in other 
-# files in a less noisy and easier to edit format
-# so we can just create rule files and apply them 
-# as needed. We'll get to that eventually.
-#
-# Similarly, these rules should allow us to remove
-# a fair amount of redundancy between the various
-# subroutines that handle the OBX data.
-#
-# At the top level we have the OBR code, and then
-# each rule has the following fields:
-#
-# index: the line in the OBX where this rule will
-#        be applied
-# pattern: the regular expression of the rule, 
-#          resulting in a list of matches
-# keys: the data keys to which the matches are
-#       are assigned
-# 
-# It may be possible to programmatically generate
-# the keys, but this functionality is here for
-# the sake of flexibility and demonstrating the
-# possibility.
+# RULES that indicate where in the OBX the narrative starts.
 our $RULES = {
+    'MRAD' => {
+        'body_index' => 15,
+    },
+    'EMCTH' => {
+        'body_index' => 14,
+    },
+    'MCTH' => {
+        'body_index' => 14,
+    },
+    'EMDIS' => {
+        'body_index' => 14,
+    },
+    'EMPRC' => {
+        'body_index' => 14,
+    },
+};
 
-    'EMCTH' => [
-        {
-            'index' => [ 3 ],
-            'pattern' =>
-                qr{Patient:\s+(\w+.*)$},
-            'keys' => [qw(PATIENT)],
-        },
-    ],
-    'MRAD' => [
-        {
-            'index' => [ 7, 8 ],
-            'pattern' =>
-                qr/Patient:\s+Sex:\s+Account Number:.*\n\s*(\w+.*?)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
-            'keys' => [qw(PATIENT SEX ACCT)],
-        },
-        {
-            'index' => [ 9, 10 ],
-            'pattern' =>
-                qr/Ordering Physician:\s+Status:\s+Location:\s+Unit Number:.*\n\s*(\w+.*?)\s{2,}\s+(\w+.*?)\s{2,}\s+(\S+)\s+(\S+)\s*$/i,
-            'keys' => [qw(ORDERING_P STATUS LOCATION UNIT_NUMB)],
-        },
-        {
-            'index' => [ 11, 12 ],
-            'pattern' =>
-                qr"Attending Physician:\s+Date of Birth:\s+Age:\s+Date of Exam:.*\n\s*(\w+.*?)\s{2,}(\d+/\d+/\d+)\s+(\d+)\s+(\d+/\d+/\d+)\s*$"i,
-            'keys' => [qw(ATTENDING_P DOB AGE DATE_OF_EXAM)],
-        },
-    ],
-    'MCTH' => [
-        {
-            'index' => [ 3 ],
-            'pattern' =>
-                qr{Patient:\s+(\w+.*)$},
-            'keys' => [qw(PATIENT)],
-        },
-        {
-            'index'   => [4],
-            'pattern' => qr{MR #:\s*(\S+)\s+ACCT #:\s*(\S+)}i,
-            'keys'    => [qw(MR ACCT)],
-        },
-        {
-            'index'   => [5],
-            'pattern' => qr{Adm Date:\s*(\S+)\s+Room:\s*(\S+)}i,
-            'keys'    => [qw(ADM_DATE ROOM)],
-        },
-        {
-            'index' => [6],
-            'pattern' => qr{Patient Type:\s*(.*?)\s{2}\s*DOB:\s*(\S+)}i,
-            'keys'    => [qw(PATIENT_TYPE DOB)],
-        },
-        {
-            'index'   => [7],
-            'pattern' => qr{Physician:\s*(\S+.*)}i,
-            'keys'    => [qw(PHYSICIAN)],
-        },
-        {
-            'index'   => [8],
-            'pattern' => qr{EMR ID:\s*(\S+.*)}i,
-            'keys'    => [qw(EMR_ID)],
-        },
-        {
-            'index'   => [9],
-            'pattern' => qr{AGE:\s*(\S+)\s*DOS:\s*(\S+)}i,
-            'keys'    => [qw(AGE DOS)],
-        },
-    ],
+# HL7 parsing rules for PID, ORC and OBR lines.
+our $HL7 = {
+    'PID' => {
+        3 => 'UNIT_NUMBER',
+        5 => 'PATIENT',
+        18 => 'ACCOUNT_NUMBER',
+    },
+    'ORC' => {
+        12 => 'ORDERING_PROVIDER',
+    },
+    'OBR' => {
+        4  => 'SERVICE_ID',
+        7  => 'OBSERVATION_START',
+        8  => 'OBSERVATION_END',
+        32 => 'PRINCIPAL_RESULT_INTERPRETER',
+        35 => 'TRANSCRIPTIONIST',
+    }
 };
 
 # This loop only works if and only if
@@ -133,28 +77,24 @@ our $RULES = {
 while (<>) {
     s/\s+$//;    # a simple chomp doesn't work here
     /^MSH/ && do {
-
         # new record, destroy exiting data
-        undef $pid;
-        undef $post_pid;
-        undef $obrid;
-        undef $obr;
-        undef $name;
+        $pid = [];
+        $obr = [];
+        $orc = [];
         $obx = [];
     };
+    # XXX these next three match could become one
     /^PID/ && do {
-
-        # get the pid line
         my @splits = split('\|', $_);
-        $pid      = $splits[3];
-        $post_pid = $splits[-1];
-        $name     = $splits[5];
-        $name =~ s/\^/ /g;
+        $pid = \@splits;
+    };
+    /^ORC/ && do {
+        my @splits = split('\|', $_);
+        $orc = \@splits;
     };
     /^OBR/ && do {
         my @splits = split('\|', $_);
-        $obrid = $splits[2];
-        $obr   = $splits[21];
+        $obr = \@splits;
     };
     /^OBX/ && do {
         my @splits = split('\|', $_);
@@ -166,57 +106,44 @@ while (<>) {
         }
     };
     /^$/ && do {
-
         # we now have a complete record
         # so...
-        handle_rule(
-            pid   => $pid,   name => $name, post_pid => $post_pid,
-            obrid => $obrid, obx  => $obx,  obr      => $obr
-        );
-
-        #exit;
+        handle_rule(pid => $pid, orc => $orc, obr => $obr, obx => $obx);
     };
 }
 
 sub handle_rule {
-    my %inparams = @_;
-    my %params   = (
+    my %params = @_;
 
-        # defaults
-        %inparams,
-    );
+    # figure out what kind of record we have
+    my $type = $params{obr}->[21];
 
-    return unless $RULES->{$params{obr}};
+    # skip this record if we don't care about this rule type
+    return unless $RULES->{$type};
+    print '#' x 24, "\n";
 
-    # output the general info we got from the msh and nearby lines
-    print '#' x 25, "\n";
-    print "filename: ", $params{pid}, '_', $params{post_pid}, '_',
-        $params{obrid}, '.html', "\n";
-    print "name: $params{name}\n";
-    print "obr: $params{obr}\n";
+    # get our OBX start index
+    my $rule = $RULES->{$type};
+    my $start_index = $rule->{body_index};
 
-    # store the data for this record in a hash
-    my $obx_data = {};
+    # this is where we will store our data for this record
+    my $gathered_data = {TYPE => $type};
+    $gathered_data->{OBX} = join("\n", @{$params{obx}});
 
-    # parse the OBX header info by RULES
-    # max index is the line where we think the headers have ended
-    # and the body begins. We calculate it while processing the
-    # headers.
-    my $max_index = 0;
-    foreach my $rule (@{ $RULES->{$params{obr}} }) {
-        my @index = @{$rule->{index}};
-        #print STDERR "@index\n";
-        my $index_max = $index[-1];
-        $max_index = $max_index > $index_max ? $max_index : $index_max;
-        my $line = join("\n", @{$params{obx}}[@index]);
-        #print STDERR "@index#$line\n#";
-        @$obx_data{ @{ $rule->{keys} } } = ($line =~ $rule->{pattern});
+    # handle parsing out stuff from PID, ORC and OBR
+    foreach my $line ('PID', 'ORC', 'OBR') {
+        my $line_rules = $HL7->{$line};
+        foreach my $index (keys(%$line_rules)) {
+            my $data = $params{lc($line)}->[$index];
+            my $name = $line_rules->{$index};
+            $gathered_data->{$name} = $data;
+        }
     }
 
     # parse the OBX body by inference
     my $body_key;
     foreach
-        my $obx (@{ $params{obx} }[ $max_index + 1 .. $#{ $params{obx} } ]) {
+        my $obx (@{ $params{obx} }[ $start_index + 1 .. $#{ $params{obx} } ]) {
 
         # if we have some content on the line and it looks like a key of
         # some sort, parse the key and get the data following.
@@ -230,25 +157,28 @@ sub handle_rule {
             $body_key = $section;
             $body_key =~ s/ /_/g;
             if ($extra) {
-                $obx_data->{$body_key} = $extra;
+                $gathered_data->{$body_key} = $extra;
             }
             else {
-                $obx_data->{$body_key} = '';
+                $gathered_data->{$body_key} = '';
             }
 
           # otherwise we have some body info, make it part of the value of the
-          # key
+          # current key
         }
         elsif ($obx) {
             if ($body_key) {
-                $obx_data->{$body_key} .= "\n" . $obx;
+                $gathered_data->{$body_key} .= "\n" . $obx;
             }
         }
     }
 
     # Print out a serialization of the data in a semi-readable form.
     use YAML;
-    print Dump($obx_data);
+    #print Dump($data);
+    my $id = Data::UUID->new->create_str();
+    $id = $GEC->put($gathered_data, $id);
+    print "PUT $type at $id\n";
 
     # XXX if you want this to run for just one record,
     # uncomment the following line
