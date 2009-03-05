@@ -147,11 +147,7 @@ sub handle_rule {
 
         # if we have some content on the line and it looks like a key of
         # some sort, parse the key and get the data following.
-        if (
-            $obx
-            and (  $obx =~ /^\s*([[:upper:] ]+):\s+(.*$)/
-                or $obx =~ /^\s*([[:upper:] ]+):?(\s*$)/)
-            ) {
+        if ($obx and ($obx =~ /^\s*([[:upper:]][\w ]+):\s+(.*$)/)) {
             my $section = $1;
             my $extra   = $2;
             $body_key = $section;
