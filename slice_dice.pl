@@ -16,25 +16,6 @@ my $orc;
 my $obr;
 my $obx;
 
-# RULES that indicate where in the OBX the narrative starts.
-our $RULES = {
-    'MRAD' => {
-        'body_index' => 15,
-    },
-    'EMCTH' => {
-        'body_index' => 14,
-    },
-    'MCTH' => {
-        'body_index' => 14,
-    },
-    'EMDIS' => {
-        'body_index' => 14,
-    },
-    'EMPRC' => {
-        'body_index' => 14,
-    },
-};
-
 # HL7 parsing rules for PID, ORC and OBR lines.
 our $HL7 = {
     'PID' => {
@@ -118,13 +99,10 @@ sub handle_rule {
     # figure out what kind of record we have
     my $type = $params{obr}->[21];
 
-    # skip this record if we don't care about this rule type
-    return unless $RULES->{$type};
     print '#' x 24, "\n";
 
     # get our OBX start index
-    my $rule = $RULES->{$type};
-    my $start_index = $rule->{body_index};
+    my $start_index = 15;
 
     # this is where we will store our data for this record
     my $gathered_data = {TYPE => $type};
