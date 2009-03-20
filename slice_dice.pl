@@ -125,7 +125,7 @@ sub handle_rule {
 
         # if we have some content on the line and it looks like a key of
         # some sort, parse the key and get the data following.
-        if ($obx and ($obx =~ /^\s*([[:upper:]][\w ]+):\s+(.*$)/)) {
+        if ($obx and ($obx =~ /^\s*([[:upper:]][\w ]+):(.*$)/)) {
             my $section = $1;
             my $extra   = $2;
             $body_key = $section;
@@ -148,8 +148,8 @@ sub handle_rule {
     }
 
     # Print out a serialization of the data in a semi-readable form.
-    use YAML;
-    #print Dump($data);
+    #use YAML;
+    #print Dump($gathered_data);
     my $id = Data::UUID->new->create_str();
     $id = $GEC->put($gathered_data, $id);
     print "PUT $type at $id\n";
