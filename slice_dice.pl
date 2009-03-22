@@ -3,13 +3,20 @@
 use strict;
 use warnings;
 
+our %opt;
+our $DSN = 'DBI:mysql:database=gec';
+our $USER = 'cdent';
+our $GEC;
+
+use Getopt::Std;
+getopt('nx', \%opt);  # -n to not put things in database
+                       # -x to do only one loop
+
 use GEC;
-
-
-my $DSN = 'DBI:mysql:database=gec';
-my $USER = 'cdent';
-my $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
-$GEC->create();
+unless ($opt{n}) {
+    $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
+    $GEC->create();
+}
 
 my $pid;
 my $orc;
@@ -125,7 +132,7 @@ sub handle_rule {
 
         # if we have some content on the line and it looks like a key of
         # some sort, parse the key and get the data following.
-        if ($obx and ($obx =~ /^\s*([[:upper:]][\w ]+):(.*$)/)) {
+        if ($obx and ($obx =~ /^\s*([[:upper:] ]+):(.*$)/)) {
             my $section = $1;
             my $extra   = $2;
             $body_key = $section;
@@ -147,14 +154,19 @@ sub handle_rule {
         }
     }
 
-    # Print out a serialization of the data in a semi-readable form.
-    #use YAML;
-    #print Dump($gathered_data);
-    my $id = Data::UUID->new->create_str();
-    $id = $GEC->put($gathered_data, $id);
-    print "PUT $type at $id\n";
+    if ($opt{n}) {
+        # Print out a serialization of the data in a semi-readable form.
+        use YAML;
+        print Dump($gathered_data);
+    }
+    else {
+        # put it in the db
+        my $id = Data::UUID->new->create_str();
+        $id = $GEC->put($gathered_data, $id);
+        print "PUT $type at $id\n";
+    }
 
-    # XXX if you want this to run for just one record,
-    # uncomment the following line
-    #exit;
+    if ($opt{x}) {
+        exit;
+    }
 }
