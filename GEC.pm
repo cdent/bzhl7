@@ -41,10 +41,10 @@ sub create {
 
     $self->dbh->do("CREATE TABLE IF NOT EXISTS "
             . $self->ename . '_keys'
-            . " (keyid VARCHAR(42) PRIMARY KEY, keyname VARCHAR(100))");
+            . " (keyid VARCHAR(42) PRIMARY KEY, keyname VARCHAR(100), INDEX(keyname))");
     $self->dbh->do("CREATE TABLE IF NOT EXISTS "
             . $self->ename . '_values'
-            . " (valueid VARCHAR(42), keyid VARCHAR(42), value TEXT, PRIMARY KEY(valueid, keyid))");
+            . " (valueid VARCHAR(42), keyid VARCHAR(42), value TEXT, PRIMARY KEY(valueid, keyid), INDEX(value(100)))");
     return $self;
 }
 
@@ -57,7 +57,7 @@ sub put {
     for my $key (keys(%$data)) {
         my $sth
             = $self->dbh->prepare("SELECT keyid from "
-                . $self->ename . '_keys'
+                . $self->_keys_t()
                 . " where keyname = ?");
         $sth->execute($key);
         # If keyname is not in the keys table, let's put it in there
@@ -69,12 +69,12 @@ sub put {
         else {
             $uuid = Data::UUID->new->create_str();
             $self->dbh->do(
-                "INSERT INTO " . $self->ename . '_keys' . " VALUES(?, ?)",
+                "INSERT INTO " . $self->_keys_t() . " VALUES(?, ?)",
                 undef, $uuid, $key);
         }
         # now put the row in values
         $self->dbh->do(
-            "REPLACE INTO " . $self->ename . '_values' . " VALUES(?, ?, ?)",
+            "REPLACE INTO " . $self->_values_t()  . " VALUES(?, ?, ?)",
             undef, $id, $uuid, $data->{$key});
     }
 
@@ -87,7 +87,7 @@ sub get {
     my $id   = shift;
     my $data = {};
 
-    my $values_t = $self->ename . '_values';
+    my $values_t = $self->_values_t();
     my $keys_t = $self->ename . '_keys';
     my $sth = $self->dbh->prepare(
         "SELECT $values_t.value, $keys_t.keyname FROM $values_t, $keys_t "
@@ -103,10 +103,55 @@ sub get {
 # (as a cursor?)
 sub all {
     my $self = shift;
-    my $values_t = $self->ename . '_values';
+    my $values_t = $self->_values_t();
     my $sth = $self->dbh->prepare("SELECT valueid FROM $values_t group by valueid");
     $sth->execute;
     return $sth->fetchall_arrayref;
+}
+
+# get the key id for any provide name
+sub keyid_for_name {
+    my $self = shift;
+    my $name = shift;
+    my $keys_t = $self->_keys_t();
+    my $sth = $self->dbh->prepare("SELECT keyid from $keys_t where keyname=?");
+    $sth->execute($name);
+    return $sth->fetchrow_arrayref->[0];
+}
+
+# get the record ids for any keyname
+sub record_ids_for_name {
+    my $self = shift;
+    my $name = shift;
+    my $value = shift;
+    my $keyid = $self->keyid_for_name($name);
+    my $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
+        " where keyid=? and value=?");
+    $sth->execute($keyid, $value);
+    return $sth->fetchall_arrayref;
+}
+
+# if we have a record id, and the name of a key we want, get the
+# value 
+sub value_for_record_id {
+    my $self = shift;
+    my $id = shift;
+    my $name = shift;
+    my $keyid = $self->keyid_for_name($name);
+    my $sth = $self->dbh->prepare("SELECT value from " . $self->_values_t() .
+        " where keyid=? and valueid=?");
+    $sth->execute($keyid, $id);
+    return $sth->fetchrow_arrayref->[0];
+}
+
+sub _values_t {
+    my $self = shift;
+    return $self->ename . '_values';
+}
+
+sub _keys_t {
+    my $self = shift;
+    return $self->ename . '_keys';
 }
 
 1;
