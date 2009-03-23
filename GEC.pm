@@ -128,7 +128,7 @@ sub record_ids_for_name {
     my $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
         " where keyid=? and value=?");
     $sth->execute($keyid, $value);
-    return $sth->fetchall_arrayref;
+    return [map {$_->[0]} @{$sth->fetchall_arrayref}];
 }
 
 # if we have a record id, and the name of a key we want, get the

@@ -25,29 +25,51 @@ print "$ordering_provider\n";
 # get all the record_ids for a field name where the value of that fields
 # is the one given
 my $record_ids = $GEC->record_ids_for_name('PRINCIPAL_RESULT_INTERPRETER', 'SANMA');
-print join("\n", map {$_->[0]} @$record_ids);
+print join("\n", @$record_ids);
 print "\n";
 
 # get all the record ids for TYPE of MCTH
 # then unique all the fields from all the records
 $record_ids = $GEC->record_ids_for_name('TYPE', 'MCTH');
 my %fields;
-foreach my $row (@$record_ids) {
-    my $id = $row->[0];
+foreach my $id (@$record_ids) {
     my $result = $GEC->get($id);
     map {$fields{$_}++} keys(%$result);
 }
 print join("\n", sort keys(%fields));
-
 print "\n";
 
 # for a given patient id, get all the types of records
 # they have
 $record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001127636');
-foreach my $row (@$record_ids) {
-    my $id = $row->[0];
+%fields = ();
+foreach my $id (@$record_ids) {
     my $type = $GEC->value_for_record_id($id, 'TYPE');
-    print "type: $type\n";
+    $fields{$type}++;
 }
+print join("\n", sort keys(%fields));
+print "\n";
+
+# for a given account_number (patient id) show all the info for all that
+# patient's records.
+$record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001127636');
+my @records = ();
+foreach my $id (@$record_ids) {
+    my $data = $GEC->get($id);
+    $data->{id} = $id;
+    push(@records, $data);
+}
+foreach my $record (sort {$a->{TYPE} cmp $b->{TYPE}} @records) {
+    print "$$record{id}", '#' x 24, "\n";
+    # you can list any fields you want here
+    # or do
+    # foreach my $field (sort keys(%$record)) {
+    foreach my $field (qw(TYPE ACCOUNT_NUMBER PRINCIPAL_RESULT_INTERPRETER OBSERVATION_START OBSERVATION_END PROCEDURE_PERFORMED)) {
+        if ($record->{$field}) {
+            print "$field\t$$record{$field}\n";
+        }
+    }
+}
+
 
 

@@ -116,7 +116,7 @@ sub handle_rule {
     print '#' x 24, "\n";
 
     # get our OBX start index
-    my $start_index = 15;
+    my $start_index = 12;
 
     # this is where we will store our data for this record
     my $gathered_data = {TYPE => $type};
