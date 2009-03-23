@@ -43,8 +43,7 @@ print "\n";
 
 # for a given patient id, get all the types of records
 # they have
-$record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001176119');
-%fields;
+$record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001127636');
 foreach my $row (@$record_ids) {
     my $id = $row->[0];
     my $type = $GEC->value_for_record_id($id, 'TYPE');

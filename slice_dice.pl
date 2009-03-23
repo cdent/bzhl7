@@ -66,10 +66,7 @@ while (<>) {
     s/\s+$//;    # a simple chomp doesn't work here
     /^MSH/ && do {
         # new record, destroy exiting data
-        $pid = [];
-        $obr = [];
-        $orc = [];
-        $obx = [];
+        clear_data();
     };
     # XXX these next three match could become one
     /^PID/ && do {
@@ -96,8 +93,18 @@ while (<>) {
     /^$/ && do {
         # we now have a complete record
         # so...
-        handle_rule(pid => $pid, orc => $orc, obr => $obr, obx => $obx);
+        if (@$pid && @$obr && @$orc && @$obx) {
+            handle_rule(pid => $pid, orc => $orc, obr => $obr, obx => $obx);
+            clear_data();
+        }
     };
+}
+
+sub clear_data {
+    $pid = [];
+    $obr = [];
+    $orc = [];
+    $obx = [];
 }
 
 sub handle_rule {
