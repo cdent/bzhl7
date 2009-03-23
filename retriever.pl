@@ -26,6 +26,7 @@ print "$ordering_provider\n";
 # is the one given
 my $record_ids = $GEC->record_ids_for_name('PRINCIPAL_RESULT_INTERPRETER', 'SANMA');
 print join("\n", map {$_->[0]} @$record_ids);
+print "\n";
 
 # get all the record ids for TYPE of MCTH
 # then unique all the fields from all the records
@@ -43,7 +44,7 @@ print "\n";
 # for a given patient id, get all the types of records
 # they have
 $record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001176119');
-my %fields;
+%fields;
 foreach my $row (@$record_ids) {
     my $id = $row->[0];
     my $type = $GEC->value_for_record_id($id, 'TYPE');
