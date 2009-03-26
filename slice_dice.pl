@@ -110,6 +110,11 @@ sub clear_data {
 sub handle_rule {
     my %params = @_;
 
+    my $status = $params{obr}->[25];
+    # if status is not S we are not "signed"
+    # so don't want it
+    return unless ($status eq 'S');
+
     # figure out what kind of record we have
     my $type = $params{obr}->[21];
 
