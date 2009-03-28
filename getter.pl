@@ -12,6 +12,7 @@ $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
 
 use YAML;
 
-my $data = $GEC->get($ARGV[0]);
-
-print Dump($data);
+foreach my $id (@ARGV) {
+    my $data = $GEC->get($id);
+    print Dump($data);
+}

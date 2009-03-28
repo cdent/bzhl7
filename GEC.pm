@@ -116,17 +116,28 @@ sub keyid_for_name {
     my $keys_t = $self->_keys_t();
     my $sth = $self->dbh->prepare("SELECT keyid from $keys_t where keyname=?");
     $sth->execute($name);
-    return $sth->fetchrow_arrayref->[0];
+    my $results = $sth->fetchrow_arrayref;
+    return $results ? $results->[0] : undef;
 }
 
 # get the record ids for any keyname
+# if value is prepended with ~, a 
+# like '%$value%' query will be done
 sub record_ids_for_name {
     my $self = shift;
     my $name = shift;
     my $value = shift;
     my $keyid = $self->keyid_for_name($name);
-    my $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
-        " where keyid=? and value=?");
+    return [] unless $keyid;
+    my $sth;
+    if ($value =~ s/^~(.*)/%$1%/) {
+        $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
+            " where keyid=? and value like ?");
+    }
+    else {
+        $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
+            " where keyid=? and value=?");
+    }
     $sth->execute($keyid, $value);
     return [map {$_->[0]} @{$sth->fetchall_arrayref}];
 }
@@ -138,10 +149,12 @@ sub value_for_record_id {
     my $id = shift;
     my $name = shift;
     my $keyid = $self->keyid_for_name($name);
+    return undef unless $keyid;
     my $sth = $self->dbh->prepare("SELECT value from " . $self->_values_t() .
         " where keyid=? and valueid=?");
     $sth->execute($keyid, $id);
-    return $sth->fetchrow_arrayref->[0];
+    my $results = $sth->fetchrow_arrayref;
+    return $results ? $results->[0] : undef;
 }
 
 sub _values_t {
