@@ -8,9 +8,11 @@ our $DSN = 'DBI:mysql:database=gec';
 our $USER = 'cdent';
 our $GEC;
 
+our $OBX_MATCH = qr{^\s*((?:[[:upper:]]\w+\s*)+):(.*$)};
+
 use Getopt::Std;
-getopt('nx', \%opt);  # -n to not put things in database
-                       # -x to do only one loop
+getopts('nx', \%opt);  # -n to not put things in database
+                      # -x to do only one loop
 
 use GEC;
 unless ($opt{n}) {
@@ -22,6 +24,7 @@ my $pid;
 my $orc;
 my $obr;
 my $obx;
+
 
 # HL7 parsing rules for PID, ORC and OBR lines.
 our $HL7 = {
@@ -144,7 +147,8 @@ sub handle_rule {
 
         # if we have some content on the line and it looks like a key of
         # some sort, parse the key and get the data following.
-        if ($obx and ($obx =~ /^\s*([[:upper:] ]+):(.*$)/)) {
+        #if ($obx and ($obx =~ /^\s*((?:[[:upper:]]\w+\s*)+):(.*$)/)) {
+        if ($obx and ($obx =~ $OBX_MATCH)) {
             my $section = $1;
             my $extra   = $2;
             $body_key = $section;
