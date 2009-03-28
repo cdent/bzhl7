@@ -24,6 +24,7 @@ my $pid;
 my $orc;
 my $obr;
 my $obx;
+my $raw_hl7;
 
 
 # HL7 parsing rules for PID, ORC and OBR lines.
@@ -71,6 +72,9 @@ while (<>) {
         # new record, destroy exiting data
         clear_data();
     };
+    /^.*$/ && do {
+        $raw_hl7 .= "$_\n";
+    };
     # XXX these next three match could become one
     /^PID/ && do {
         my @splits = split('\|', $_);
@@ -97,7 +101,7 @@ while (<>) {
         # we now have a complete record
         # so...
         if (@$pid && @$obr && @$orc && @$obx) {
-            handle_rule(pid => $pid, orc => $orc, obr => $obr, obx => $obx);
+            handle_rule(raw_hl7 => $raw_hl7, pid => $pid, orc => $orc, obr => $obr, obx => $obx);
             clear_data();
         }
     };
@@ -108,6 +112,7 @@ sub clear_data {
     $obr = [];
     $orc = [];
     $obx = [];
+    $raw_hl7 = '';
 }
 
 sub handle_rule {
@@ -128,6 +133,7 @@ sub handle_rule {
 
     # this is where we will store our data for this record
     my $gathered_data = {TYPE => $type};
+    $gathered_data->{raw_hl7} = $params{raw_hl7};
     $gathered_data->{OBX} = join("\n", @{$params{obx}});
 
     # handle parsing out stuff from PID, ORC and OBR
