@@ -119,9 +119,7 @@ sub handle_rule {
     my %params = @_;
 
     my $status = $params{obr}->[25];
-    # if status is not S we are not "signed"
-    # so don't want it
-    return unless ($status eq 'S');
+    return unless ($status eq 'S' or $status eq 'D');
 
     # figure out what kind of record we have
     my $type = $params{obr}->[21];
@@ -134,7 +132,7 @@ sub handle_rule {
     # this is where we will store our data for this record
     my $gathered_data = {TYPE => $type};
     $gathered_data->{raw_hl7} = $params{raw_hl7};
-    $gathered_data->{OBX} = join("\n", @{$params{obx}});
+    $gathered_data->{status} = $status;
 
     # handle parsing out stuff from PID, ORC and OBR
     foreach my $line ('PID', 'ORC', 'OBR') {
