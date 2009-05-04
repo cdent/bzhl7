@@ -2,6 +2,13 @@
 
 use strict;
 use warnings;
+use Getopt::Std;
+use Time::HiRes;
+use GEC;
+use pid;
+use orc;
+use obr;
+
 
 our %opt;
 our $DSN = 'DBI:mysql:database=gec';
@@ -10,41 +17,27 @@ our $GEC;
 
 our $OBX_MATCH = qr{^\s*((?:[[:upper:]]\w+\s*)+):(.*$)};
 
-use Getopt::Std;
-getopts('nx', \%opt);  # -n to not put things in database
-                      # -x to do only one loop
+getopts('nxd', \%opt);  # -n to not put things in database
+                        # -x to do only one loop
+                        # -d to print out some warnings
 
-use GEC;
 unless ($opt{n}) {
     $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
     $GEC->create();
 }
+
+my %FIELDS = (
+    'PID' => $pid::fields,
+    'ORC' => $orc::fields,
+    'OBR' => $obr::fields,
+);
 
 my $pid;
 my $orc;
 my $obr;
 my $obx;
 my $raw_hl7;
-
-
-# HL7 parsing rules for PID, ORC and OBR lines.
-our $HL7 = {
-    'PID' => {
-        3 => 'UNIT_NUMBER',
-        5 => 'PATIENT',
-        18 => 'ACCOUNT_NUMBER',
-    },
-    'ORC' => {
-        12 => 'ORDERING_PROVIDER',
-    },
-    'OBR' => {
-        4  => 'SERVICE_ID',
-        7  => 'OBSERVATION_START',
-        8  => 'OBSERVATION_END',
-        32 => 'PRINCIPAL_RESULT_INTERPRETER',
-        35 => 'TRANSCRIPTIONIST',
-    }
-};
+my $time_of_message;
 
 # This loop only works if and only if
 # 
@@ -71,6 +64,8 @@ while (<>) {
     /^MSH/ && do {
         # new record, destroy exiting data
         clear_data();
+        my @splits = split('\|', $_);
+        $time_of_message = $splits[6];
     };
     /^.*$/ && do {
         $raw_hl7 .= "$_\n";
@@ -101,7 +96,7 @@ while (<>) {
         # we now have a complete record
         # so...
         if (@$pid && @$obr && @$orc && @$obx) {
-            handle_rule(raw_hl7 => $raw_hl7, pid => $pid, orc => $orc, obr => $obr, obx => $obx);
+            handle_rule(tom => $time_of_message, raw_hl7 => $raw_hl7, pid => $pid, orc => $orc, obr => $obr, obx => $obx);
             clear_data();
         }
     };
@@ -113,6 +108,7 @@ sub clear_data {
     $orc = [];
     $obx = [];
     $raw_hl7 = '';
+    $time_of_message = '';
 }
 
 sub handle_rule {
@@ -133,14 +129,21 @@ sub handle_rule {
     my $gathered_data = {TYPE => $type};
     $gathered_data->{raw_hl7} = $params{raw_hl7};
     $gathered_data->{status} = $status;
+    $gathered_data->{time_of_message} = $params{tom}; # YYYYMMDDHHSS
+    $gathered_data->{time_of_parsing} = Time::HiRes::time(); # floating point seconds since epoch
 
     # handle parsing out stuff from PID, ORC and OBR
     foreach my $line ('PID', 'ORC', 'OBR') {
-        my $line_rules = $HL7->{$line};
-        foreach my $index (keys(%$line_rules)) {
-            my $data = $params{lc($line)}->[$index];
-            my $name = $line_rules->{$index};
-            $gathered_data->{$name} = $data;
+        my $data_member = lc($line);
+        my $fields = $FIELDS{$line};
+        warn "@{$params{$data_member}}\n" if $opt{d};
+        for (my $index = 0; $index <= @$fields; $index++) {
+            my $data = $params{$data_member}->[$index+1];
+            my $name = $fields->[$index];
+            if ($data) {
+                warn "$index:$name:$data\n" if $opt{d};
+                $gathered_data->{$name} = $data;
+            }
         }
     }
 
