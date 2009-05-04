@@ -41,7 +41,7 @@ print "\n";
 
 # for a given patient id, get all the types of records
 # they have
-$record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001127636');
+$record_ids = $GEC->record_ids_for_name('PATIENT_ACCOUNT_NUMBER', 'M0001127636');
 %fields = ();
 foreach my $id (@$record_ids) {
     my $type = $GEC->value_for_record_id($id, 'TYPE');
@@ -52,7 +52,7 @@ print "\n";
 
 # for a given account_number (patient id) show all the info for all that
 # patient's records.
-$record_ids = $GEC->record_ids_for_name('ACCOUNT_NUMBER', 'M0001127636');
+$record_ids = $GEC->record_ids_for_name('PATIENT_ACCOUNT_NUMBER', 'M0001127636');
 my @records = ();
 foreach my $id (@$record_ids) {
     my $data = $GEC->get($id);
@@ -64,12 +64,9 @@ foreach my $record (sort {$a->{TYPE} cmp $b->{TYPE}} @records) {
     # you can list any fields you want here
     # or do
     # foreach my $field (sort keys(%$record)) {
-    foreach my $field (qw(TYPE ACCOUNT_NUMBER PRINCIPAL_RESULT_INTERPRETER OBSERVATION_START OBSERVATION_END PROCEDURE_PERFORMED)) {
+    foreach my $field (qw(TYPE PATIENT_ACCOUNT_NUMBER PRINCIPAL_RESULT_INTERPRETER OBSERVATION_DATE/TIME OBSERVATION_END_DATE/TIME PROCEDURE_PERFORMED)) {
         if ($record->{$field}) {
             print "$field\t$$record{$field}\n";
         }
     }
 }
-
-
-
