@@ -142,6 +142,20 @@ sub record_ids_for_name {
     return [map {$_->[0]} @{$sth->fetchall_arrayref}];
 }
 
+sub unique_record {
+    my $self = shift;
+    my %params = @_;
+    my $ids = $self->record_ids_for_name($params{key_name}, $params{key_value});
+    my $results = [];
+    foreach my $id (@$ids) {
+        warn "id: $id\n";
+        push(@$results, $self->get($id));
+    }
+
+    $results = [sort {$b->{$params{uniquing_field}} cmp $a->{$params{uniquing_field}}} @$results];
+    return $results ? $results->[0] :undef;
+}
+
 # if we have a record id, and the name of a key we want, get the
 # value 
 sub value_for_record_id {
