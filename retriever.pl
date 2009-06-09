@@ -12,6 +12,7 @@ $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
 
 use YAML;
 
+goto LAST;
 
 # when we put, we are putting a hash with an id: the id is of the record
 # in the values table the first column is the id
@@ -70,6 +71,21 @@ my $record = $GEC->unique_record(
     uniquing_field => 'time_of_parsing'
 );
 display_some_data($record);
+
+LAST:
+# End results is: 
+# MD5('DOBLASTNAME'):LASTNAME:PATIENT_ID_INTERNAL_ID:DOB
+# DOB not available reliably need
+# PATIENT_NAME
+# PATIENT_ID_INTERNAL_ID
+my $recordids = $GEC->records_for_key_name('PATIENT_ID_INTERNAL_ID');
+foreach my $id (@$recordids) {
+    print $id->[0], "\n";
+    my $data = $GEC->get($id->[0]);
+    print $data->{'PATIENT_NAME'}, $data->{'PATIENT_ID_INTERNAL_ID'}, "\n";
+    my $last_name = (split('\^', $data->{PATIENT_NAME}))[0];
+    print $last_name, $data->{'PATIENT_ID_INTERNAL_ID'}, "\n";
+}
 
 sub display_some_records {
     my $record_ids = shift;

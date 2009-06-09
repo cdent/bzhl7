@@ -171,6 +171,23 @@ sub value_for_record_id {
     return $results ? $results->[0] : undef;
 }
 
+# get 1 recordid for each instance of a particular key_name.
+# That is for everywhere PATIENT_NAME is frank there may
+# be many records, but we only return one valueid/recordid.
+# We do this so we can then look up other patient information
+# rather than record information.
+sub records_for_key_name {
+    my $self = shift;
+    my $key_name = shift;
+    return undef unless $key_name;
+    my $keyid = $self->keyid_for_name($key_name);
+    return undef unless $keyid;
+    my $sth = $self->dbh->prepare("SELECT valueid from " . $self->_values_t() .
+        " where keyid=? group by value");
+    $sth->execute($keyid);
+    return $sth->fetchall_arrayref;
+}
+
 sub _values_t {
     my $self = shift;
     return $self->ename . '_values';
