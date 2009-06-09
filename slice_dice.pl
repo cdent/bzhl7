@@ -9,6 +9,8 @@ use pid;
 use orc;
 use obr;
 
+$|=1;
+
 
 our %opt;
 our $DSN = 'DBI:mysql:database=gec';
@@ -20,6 +22,7 @@ our $OBX_MATCH = qr{^\s*((?:[[:upper:]]\w+\s*)+):(.*$)};
 getopts('nxd', \%opt);  # -n to not put things in database
                         # -x to do only one loop
                         # -d to print out some warnings
+print "STARTING UP" if $opt{d};
 
 unless ($opt{n}) {
     $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
@@ -59,7 +62,9 @@ my $time_of_message;
 #
 # We look for the identifying markers of each line
 # and push the data into a hash that we reuse.
-while (<>) {
+#while (<>) {
+while (<STDIN>) {
+    print $_ if $opt{d};
     s/\s+$//;    # a simple chomp doesn't work here
     /^MSH/ && do {
         # new record, destroy exiting data

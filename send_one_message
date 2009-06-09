@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Net::HL7::Message;
+use Net::HL7::Connection;
+
+my $message = join('', <DATA>);
+
+my $msg = new Net::HL7::Message($message);
+die "message no good: $!\n" unless $msg;
+
+my $conn = new Net::HL7::Connection("localhost", 12011);
+die "unable to get connection: $!\n" unless $conn;
+
+my $resp = $conn->send($msg);
+die "no response from connection: $!\n" unless $resp;
+
+my $msh = $resp->getSegmentByIndex(0);
+my @errors = $msh->getFields();
+my $errors = join(', ', @errors);
+$errors =~ s/\r/\n/g;
+print "errors: $errors\n";
+if ($msh->getField(9) eq "ACK") {
+    print "message acked\n";
+} else {
+    print "message failed: no ACK\n";
+}
+
+$conn->close();
+
+
+__DATA__
+MSH|^~\&|ITS|SPT|||200807301513||ORU|21893017|P|2.2
+EVN||
+PID|1||M000253651||XXX^XXXX^E^^^|||||||||||||M0001209996
+ORC|||||||||||||||||||
+OBR|1|XX20080730-XXXX|XX20080730-XXXX||||200807280000|||||||||||||MR|MPRC||||D|||||||XXXX|||XXXX
+OBX|1|TX|||\ZU\\H\ ST. PATRICK HOSPITAL AND HEALTH SCIENCES CENTER

@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Net::HL7::Daemon;
+use IPC::Run qw(run);
+
+my $logfile = './log';
+
+$|=1;
+
+#my @CMD = ('wall');
+my @CMD = ('./slice_dice.pl', '-dxn');
+#my @CMD = ('./slice_dice.pl');
+#my @CMD = ('./god_my');
+#my @CMD = qw(cat);
+
+my $hl7d = new Net::HL7::Daemon(LocalPort => 12011);
+
+# loop forevers!
+# XXX do we need to wait on our children?
+while (1) {
+    my $client = $hl7d->accept();
+    my $pid = fork();
+    if (! $pid ) {
+        # handle the client in the subprocess
+        open STDOUT, ">>$logfile";
+        open STDERR, ">>$logfile";
+        while (my $message = $client->getNextRequest()) {
+            if (save_message($message)) {
+                $client->sendAck();
+            } else {
+                $client->sendNack();
+            }
+        }
+        exit;
+    }
+}
+
+sub save_message {
+    my $message = shift;
+    my $err = '';
+    my $out;
+    eval {
+        my $stringed_message = $message->toString() . "\n\n";
+        $stringed_message =~ s/\r/\n/g;
+        run \@CMD, \$stringed_message, \$out, \$err or die "couldn't run command: $?\n";
+    };
+    if ($@ or $err) {
+        warn 'at ', $@ if $@;
+        warn 'e ', $err if $err;
+        return 0;
+    }
+    return 1;
+}
+
