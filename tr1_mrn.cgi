@@ -7,8 +7,7 @@ use CGI;
 use GEC;
 
 my $DSN = 'DBI:mysql:database=gec';
-my $USER = 'cdent';
-#my $USER = 'ccr';
+my $USER = 'ccr';
 
 my @FIELDS_OF_INTEREST = qw(
     TYPE
@@ -37,13 +36,12 @@ my @FIELDS_OF_INTEREST = qw(
 );
 
 my $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
-#my $q = CGI->new();
+my $q = CGI->new();
 
-#my $patient_id = $q->param('i');
-my $patient_id = 'V000043105';
+my $patient_id = $q->param('i');
 
-#my $type = $q->param('t');
-#my $pri = $q->param('p');
+my $type = $q->param('t');
+my $pri = $q->param('p');
 
 die "you need to provide a patient id\n" unless $patient_id;
 
@@ -76,6 +74,8 @@ foreach my $id (@$record_ids) {
         key_value      => $order_number,
         uniquing_field => 'time_of_parsing'
     );
+    next unless $record->{TYPE} eq $type;
+    next unless $record->{PRINCIPAL_RESULT_INTERPRETER} eq $pri;
     print <<"EOF";
 <BLOCKQUOTE>
 <font color="salmon">
