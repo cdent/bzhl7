@@ -19,10 +19,12 @@ our $GEC;
 
 our $OBX_MATCH = qr{^\s*((?:[[:upper:]]\w+\s*)+):(.*$)};
 
-getopts('nxd', \%opt);  # -n to not put things in database
-                        # -x to do only one loop
-                        # -d to print out some warnings
+getopts('nxdi:', \%opt);  # -n to not put things in database
+                          # -x to do only one loop
+                          # -d to print out some warnings
+                          # -i index to start on
 print "STARTING UP" if $opt{d};
+our $OBX_INDEX = $opt{i} || 0;
 
 unless ($opt{n}) {
     $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
@@ -100,7 +102,8 @@ while (<STDIN>) {
     /^$/ && do {
         # we now have a complete record
         # so...
-        if (@$pid && @$obr && @$orc && @$obx) {
+        #if (@$pid && @$obr && @$orc && @$obx) {
+        if (@$pid && @$obr && @$obx) {
             handle_rule(tom => $time_of_message, raw_hl7 => $raw_hl7, pid => $pid, orc => $orc, obr => $obr, obx => $obx);
             clear_data();
         }
@@ -128,7 +131,7 @@ sub handle_rule {
     print '#' x 24, "\n";
 
     # get our OBX start index
-    my $start_index = 12;
+    my $start_index = $OBX_INDEX;
 
     # this is where we will store our data for this record
     my $gathered_data = {TYPE => $type};
