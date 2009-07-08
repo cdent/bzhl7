@@ -96,6 +96,7 @@ sub get {
     while (my $result = $sth->fetchrow_hashref) {
         $data->{$result->{keyname}} = $result->{value};
     }
+    $data->{id} = $id;
     return $data;
 }
 
