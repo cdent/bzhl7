@@ -13,16 +13,18 @@ $|=1;
 
 
 our %opt;
-our $DSN = 'DBI:mysql:database=gec';
+
+getopts('nxdi:b:', \%opt);  # -n to not put things in database
+                          # -x to do only one loop
+                          # -d to print out some warnings
+                          # -i index to start on
+my $database = $opt{b} || 'gec';
+our $DSN = "DBI:mysql:database=$database";
 our $USER = 'cdent';
 our $GEC;
 
 our $OBX_MATCH = qr{^\s*((?:[[:upper:]]\w+\s*)+):(.*$)};
 
-getopts('nxdi:', \%opt);  # -n to not put things in database
-                          # -x to do only one loop
-                          # -d to print out some warnings
-                          # -i index to start on
 print "STARTING UP" if $opt{d};
 our $OBX_INDEX = $opt{i} || 0;
 
