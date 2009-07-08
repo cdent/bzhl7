@@ -3,6 +3,7 @@
 use strict;
 use warnings;
 
+use YAML;
 use Net::HL7::Daemon;
 use IPC::Run qw(run);
 
@@ -10,11 +11,10 @@ my $logfile = './log';
 
 $|=1;
 
-#my @CMD = ('wall');
-my @CMD = ('./slice_dice.pl', '-dxn');
-#my @CMD = ('./slice_dice.pl');
-#my @CMD = ('./god_my');
-#my @CMD = qw(cat);
+my %CMD = (
+    'ITS' => ['./slice_dice.pl', '-dxn', '-i', '14', '-b', 'its'],
+    'CMT' => ['./slice_dice.pl', '-dxn', '-b', 'cmt'],
+);
 
 my $hl7d = new Net::HL7::Daemon(LocalPort => 12011);
 
@@ -42,10 +42,12 @@ sub save_message {
     my $message = shift;
     my $err = '';
     my $out;
+    my $message_type = $message->getSegmentFieldAsString(0, 3);
     eval {
         my $stringed_message = $message->toString() . "\n\n";
         $stringed_message =~ s/\r/\n/g;
-        run \@CMD, \$stringed_message, \$out, \$err or die "couldn't run command: $?\n";
+        warn "running $CMD{$message_type}";
+        run $CMD{$message_type}, \$stringed_message, \$out, \$err or die "couldn't run command: $?\n";
     };
     if ($@ or $err) {
         warn 'at ', $@ if $@;
