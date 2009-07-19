@@ -210,6 +210,17 @@ sub records_for_key_name {
     return $sth->fetchall_arrayref;
 }
 
+# return all the valueids associated with values for which the provided string
+# is a match.
+sub search {
+    my $self = shift;
+    my $query = shift;
+    my $sth = $self->dbh->prepare("SELECT valueid FROM " . $self->_values_t() .
+        " WHERE value LIKE ? GROUP BY valueid");
+    $sth->execute("%$query%");
+    return [map {$_->[0]} @{$sth->fetchall_arrayref}];
+}
+
 sub _values_t {
     my $self = shift;
     return $self->ename . '_values';
