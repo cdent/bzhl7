@@ -4,6 +4,7 @@ use warnings;
 use Class::Field qw(field);
 use DBI();
 use Data::UUID;
+use IO::File;
 
 field 'dbh';
 field 'ename';
@@ -11,6 +12,22 @@ field 'ename';
 # Generic Entity Cloud Style Data Handling
 # in Perl. Based on conversations with 
 # Walt Woolfolk.
+
+my $DSN_DEFAULT = 'DBI:mysql:database=gec';
+my $DSN_FILE = '.dsn';
+
+sub ReadDSN {
+    my $class = shift;
+    my $db_name = shift || 'gec';
+    my $dsn = $DSN_DEFAULT;
+    if (-r $DSN_FILE) {
+        my $fh = new IO::File "< $DSN_FILE" || die "oops: $!";
+        $dsn = join('', <$fh>);
+        chomp($dsn);
+    }
+    $dsn =~ s/%db_name%/$db_name/;
+    return $dsn;
+}
 
 sub new {
     my $class = shift;
@@ -41,10 +58,14 @@ sub create {
 
     $self->dbh->do("CREATE TABLE IF NOT EXISTS "
             . $self->ename . '_keys'
-            . " (keyid VARCHAR(42) PRIMARY KEY, keyname VARCHAR(100), INDEX(keyname))");
+            . " (keyid VARCHAR(42) PRIMARY KEY, keyname VARCHAR(100))");
+    $self->dbh->do("CREATE INDEX IF NOT EXISTS keyname on " . $self->ename . '_keys' 
+            . " (keyname)");
     $self->dbh->do("CREATE TABLE IF NOT EXISTS "
             . $self->ename . '_values'
-            . " (valueid VARCHAR(42), keyid VARCHAR(42), value TEXT, PRIMARY KEY(valueid, keyid), INDEX(value(100)))");
+            . " (valueid VARCHAR(42), keyid VARCHAR(42), value TEXT, PRIMARY KEY(valueid, keyid))");
+    $self->dbh->do("CREATE INDEX IF NOT EXISTS value on " . $self->ename . '_values'
+            . " (value)");
     return $self;
 }
 

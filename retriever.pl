@@ -3,11 +3,11 @@
 use strict;
 use warnings;
 
-our $DSN = 'DBI:mysql:database=gec';
 our $USER = 'cdent';
 our $GEC;
 
 use GEC;
+our $DSN = GEC->ReadDSN();
 $GEC = GEC->new(ename => 'hl7', dsn => $DSN, user => $USER);
 
 use YAML;

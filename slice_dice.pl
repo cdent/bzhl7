@@ -18,8 +18,9 @@ getopts('nxdi:b:', \%opt);  # -n to not put things in database
                           # -x to do only one loop
                           # -d to print out some warnings
                           # -i index to start on
+                          # -b database name
 my $database = $opt{b} || 'gec';
-our $DSN = "DBI:mysql:database=$database";
+our $DSN = GEC->ReadDSN($database);
 our $USER = 'cdent';
 our $GEC;
 
